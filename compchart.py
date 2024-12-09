@@ -31,12 +31,16 @@ tmp_gc = (df['cross'] != cross_shift) & (df['cross'] == True)
 # Dead cross
 tmp_dc = (df['cross'] != cross_shift) & (df['cross'] == False)
 
-df['tmp_gc'] = tmp_gc
-df['tmp_dc'] = tmp_dc
+# df['tmp_gc'] = tmp_gc
+# df['tmp_dc'] = tmp_dc
 gc = [m if g == True else np.nan for g, m in zip(tmp_gc, df['ma5'])]
 dc = [m if d == True else np.nan for d, m in zip(tmp_dc, df['ma25'])]
 df['golden'] = gc
 df['dead'] = dc
+
+# Bollinger bands
+df['upper2'], _, df['lower2'] = ta.BBANDS(df["Close"], timeperiod=25,
+                              nbdevup=2, nbdevdn=2, matype=0)
 
 rdf = df[dt.datetime(2024,1,1):]
 
@@ -71,8 +75,14 @@ data = [
         # Dead Cross
         go.Scatter(x=rdf["Date"], y=rdf["dead"], name="Dead Cross",
                    opacity=0.8, mode="markers",
-                   marker={"size":15, "color": "black", "symbol":"triangle-down"})
-        
+                   marker={"size":15, "color": "black", "symbol":"triangle-down"}),
+
+        # Bollinger bands
+        go.Scatter(x=rdf["Date"], y=rdf["upper2"], name="",
+                   line={"color": "lavender", "width": 0}),
+        go.Scatter(x=rdf["Date"], y=rdf["lower2"], name="",
+                   line={"color": "lavender","width": 0},
+                   fill="tonexty", fillcolor="rgba(170,170,170,.2)")
         ]
 
 fig = go.Figure(data = data, layout = go.Layout(layout))
