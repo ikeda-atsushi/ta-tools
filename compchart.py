@@ -45,15 +45,18 @@ df['upper2'], _, df['lower2'] = ta.BBANDS(df["Close"], timeperiod=25,
 rdf = df[dt.datetime(2024,1,1):]
 
 layout = {
-
-    'title' : {"text" : "{}  {}".format(TICKER, NAME), "x":0.5},
-    "xaxis" : {"title" : "日付", "rangeslider": {"visible": False} },
-    "yaxis" : {"title" : "価格", "side": "left", "tickformat": "," },
+    "height":800,
+    "title" : { "text" : "{}  {}".format(TICKER, NAME), "x":0.5},
+    "xaxis" : { "title" : "Date", "rangeslider": {"visible": False} },
+    "yaxis1": { "domain": [.20, 1.0], "title" : "Price($)", "side": "left", "tickformat": "," },
+    "yaxis2": { "domain": [.10, .20] },
+    "yaxis3": { "domain": [.00, .10], "title": "Volume", "side": "right"},
     "plot_bgcolor": "light blue"
     }
 
 data = [
-        go.Candlestick(x=rdf.Date, open=rdf["Open"], high=rdf["High"],
+        # Candle stick
+        go.Candlestick(yaxis="y1", x=rdf["Date"], open=rdf["Open"], high=rdf["High"],
                        low = rdf["Low"], close=rdf["Close"],
                        increasing_line_color="red",
                        increasing_line_width=1.0,
@@ -62,27 +65,31 @@ data = [
                        decreasing_line_width=1.0,
                        decreasing_fillcolor="gray"),
         # 5 days average
-        go.Scatter(x=rdf["Date"], y=rdf["ma5"], name="MA5",
+        go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["ma5"], name="MA5",
                    line={"color": "royalblue", "width":1.2} ),
         # 25 days average
-        go.Scatter(x=rdf["Date"], y=rdf["ma25"], name="MA25",
+        go.Scatter(yaxis="y1",x=rdf["Date"], y=rdf["ma25"], name="MA25",
                    line={"color": "lightseagreen", "width":1.2}),
 
         # Golden Cross
-        go.Scatter(x=rdf["Date"], y=rdf["golden"], name="Golden Cross",
+        go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["golden"], name="Golden Cross",
                    opacity=0.5, mode="markers",
                    marker={"size":15, "color": "magenta", "symbol":"triangle-up"}),
         # Dead Cross
-        go.Scatter(x=rdf["Date"], y=rdf["dead"], name="Dead Cross",
+        go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["dead"], name="Dead Cross",
                    opacity=0.8, mode="markers",
                    marker={"size":15, "color": "black", "symbol":"triangle-down"}),
 
         # Bollinger bands
-        go.Scatter(x=rdf["Date"], y=rdf["upper2"], name="",
+        go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["upper2"], name="",
                    line={"color": "lavender", "width": 0}),
-        go.Scatter(x=rdf["Date"], y=rdf["lower2"], name="",
+        go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["lower2"], name="",
                    line={"color": "lavender","width": 0},
-                   fill="tonexty", fillcolor="rgba(170,170,170,.2)")
+                   fill="tonexty", fillcolor="rgba(170,170,170,.2)"),
+
+        # Volume
+        go.Bar(yaxis="y3", x=rdf["Date"], y=rdf["Volume"], name="Volume",
+                   marker={ "color": "slategray"})
         ]
 
 fig = go.Figure(data = data, layout = go.Layout(layout))
