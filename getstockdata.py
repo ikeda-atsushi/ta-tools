@@ -3,32 +3,38 @@ import pandas as pd
 import yfinance as yf
 import os
 from datetime import datetime as dt
+from icecream import ic
 
-def get_stock_data_from_to_end(code, start, end):
-    return pdr.DataReader(code, "stooq",start, end).sort_index()
+def get_stock_data_from_to_end(ticker, start, end):
+    return pdr.DataReader(ticker, "stooq",start, end).sort_index()
 
-def get_stock_data(code):
-    return pdr.DataReader(code, "stooq").sort_index()
+def get_stock_data(ticker):
+    if os.path.isfile(ticker+'.csv'):
+        df = pd.read_csv(ticker+'.csv')
+        df.index = pd.to_datetime(df['Date'])
+        return df
+    
+    df = pdr.DataReader(ticker, "stooq").sort_index()
+    df['weekday'] = df.index.weekday
+    df.to_csv(ticker+'.csv', encoding='utf-8')
+    return df
 
 def getPriceHistory(ticker, start, end):
     if os.path.isfile(ticker+'.csv'):
         df = pd.read_csv(ticker+'.csv')
+        df.set_index("Date", drop=True)
         df['Date'] = pd.to_datetime(df['Date'])
-        #df = df.reset_index(drop=True)
-        #df = df.drop("Volume", axis=1)
         return df
     
     df =  yf.download(ticker,start,end)
     df['weekday'] = df.index.weekday
     df['Date'] = df.index
     df = df.reset_index(drop=True)
-    #df = df.drop('Volume', axis=1)
+    df.to_csv(ticker+'.csv', encoding='utf-8')
     return df
 
 def getWeekNum(df):
     weeks=[]
-    #print("Start: ", df.loc[0, "Date"] )
-    #print("End: ", df.loc[len(df)-1, "Date"])
 
     if type(df.loc[len(df)-1,'Date']) is pd._libs.tslibs.timestamps.Timestamp:
         end = df.loc[len(df)-1,'Date']
