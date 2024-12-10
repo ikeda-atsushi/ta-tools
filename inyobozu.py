@@ -47,7 +47,7 @@ data = [
 
         go.Scatter(yaxis="y1", x=rdf["Date"], y=rdf["mb_marker"], mode="markers+text", text=rdf["mb_signal"],
                    textposition ="top center",
-                   name = "Marubozu",
+                   name = "Belt Hold",
                    marker = {"size": 12, "color": "blue", "opacity": 0.6},
                    textfont = {"size": 14, "color": "black"}),
 
