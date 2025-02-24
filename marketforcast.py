@@ -1,3 +1,4 @@
+#!bin/python
 import yfinance as yf
 import datetime as dt
 from prophet import Prophet 
@@ -8,8 +9,8 @@ import matplotlib.pyplot as plt
 #TICKER = "QBTS" # D-Wave
 #TICKER = "QUBT" # Quantum Computing
 #TICKER = "IONQ" # IonQ
-#TICKER = "INTC" # Intel Corp
-TICKER = "NXE"  # NexGen Energy
+TICKER = "INTC" # Intel Corp
+#TICKER = "NXE"  # NexGen Energy
 
 st = dt.datetime(2020, 1, 1)
 ed = dt.datetime.today()

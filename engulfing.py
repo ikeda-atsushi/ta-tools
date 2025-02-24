@@ -6,11 +6,11 @@ from getstockdata import get_stock_data
 import plotly.graph_objs as go
 from icecream import ic
 
-#TICKER = "PLTR" # Palantir Technologies
+TICKER = "PLTR" # Palantir Technologies
 #TICKER = "QBTS" # D-Wave
 #TICKER = "QUBT" # Quantum Computing
 #TICKER = "IONQ" # IonQ
-TICKER = "INTC" # Intel Corp
+#TICKER = "INTC" # Intel Corp
 #TICKER = "NXE"  # NexGen Energy
 
 NAME=""

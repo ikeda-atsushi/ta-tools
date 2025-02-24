@@ -6,11 +6,11 @@ from getstockdata import get_stock_data
 import plotly.graph_objs as go
 from icecream import ic
 
-#TICKER = "PLTR" # Palantir Technologies
+TICKER = "PLTR" # Palantir Technologies
 #TICKER = "QBTS" # D-Wave
 #TICKER = "QUBT" # Quantum Computing
 #TICKER = "IONQ" # IonQ
-TICKER = "INTC" # Intel Corp
+#TICKER = "INTC" # Intel Corp
 #TICKER = "NXE"  # NexGen Energy
 
 NAME=""
@@ -18,13 +18,16 @@ NAME=""
 st = dt.datetime(2020,1,1)
 ed = dt.datetime.today()
 
+# Get the market data
 df = get_stock_data(TICKER)
 df['Date'] = pd.to_datetime(df.index, format="mixed", dayfirst=False).strftime('%m-%d-%Y')
 
+# Marubozu signal detection
 mb = ta.CDLMARUBOZU(df["Open"], df["High"], df["Low"], df["Close"])
 df["mb_signal"] = mb.replace({100:"Buy", -100:"Sell", 0:""})
 df["mb_marker"] = (mb/100 * df["High"]).abs().replace({0:np.nan})
 
+# Get the latest 6 months data 
 rdf = df[dt.datetime(2024,7,1):]
 
 layout = {
@@ -53,6 +56,7 @@ data = [
 
 fig = go.Figure(data=data, layout=go.Layout(layout))
 
+# Cut half data to show a clean graph
 fig.update_layout({
     "xaxis":{
         "tickvals": rdf.Date[::2],

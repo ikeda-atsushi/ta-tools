@@ -1,16 +1,18 @@
 import plotly.graph_objs as go
+#import plotly.express as go
 import datetime as dt
 import pandas as pd
 import talib as ta
 import numpy as np
+import streamlit as stl
 from getstockdata import getPriceHistory,get_stock_data
 from icecream import ic
 
-#TICKER = "PLTR" # Palantir Technologies
-TICKER = "QBTS" # D-Wave
+TICKER = "PLTR" # Palantir Technologies
+#TICKER = "QBTS" # D-Wave
 #TICKER = "QUBT" # Quantum Computing
 #TICKER = "IONQ" # IonQ
-#TICKER = "INTC" # Intel Corp
+#TICKER = "PDYN" # Palladyn AI corp 
 #TICKER = "NXE"  # NexGen Energy
 
 NAME = ""
@@ -18,9 +20,9 @@ st = dt.datetime(2020,1,1)
 ed = dt.datetime.today()
 
 df = get_stock_data(TICKER)
-df.set_index('Date', inplace=True)
 
-df['Date'] = df.index.strftime('%m-%d-%Y')
+df['Date'] = pd.to_datetime(df.index, format="mixed", dayfirst=False).strftime('%Y-%m-%d')
+
 df["ma5"] = ta.SMA(df["Close"], 5)
 df["ma25"] = ta.SMA(df["Close"], 25)
 
@@ -30,16 +32,11 @@ cross_shift = df['cross'].shift(1)
 
 # Golden cross
 tmp_gc = (df['cross'] != cross_shift) & (df['cross'] == True)
+df['golden'] = [m if g == True else np.nan for g, m in zip(tmp_gc, df['ma5'])]
 
 # Dead cross
 tmp_dc = (df['cross'] != cross_shift) & (df['cross'] == False)
-
-# df['tmp_gc'] = tmp_gc
-# df['tmp_dc'] = tmp_dc
-gc = [m if g == True else np.nan for g, m in zip(tmp_gc, df['ma5'])]
-dc = [m if d == True else np.nan for d, m in zip(tmp_dc, df['ma25'])]
-df['golden'] = gc
-df['dead'] = dc
+df['dead'] = [m if d == True else np.nan for d, m in zip(tmp_dc, df['ma25'])]
 
 # Bollinger bands
 df['upper2'], _, df['lower2'] = ta.BBANDS(df["Close"], timeperiod=25,
@@ -59,10 +56,8 @@ df["slowK"], df["slowD"] = ta.STOCH(df["High"], df["Low"], df["Close"],
                                     slowk_matype=0, slowd_period=3,
                                     slowd_matype=0)
 
-
 # Auxiliary line
 df["80"], df["20"] = [80 for _ in df["Close"]], [20 for _ in df["Close"]]
-
 
 rdf = df[dt.datetime(2024,7,1):]
 
@@ -166,6 +161,7 @@ fig.update_layout({
     
 fig.show()
 
+stl.title('Hello World')
 
 
 
