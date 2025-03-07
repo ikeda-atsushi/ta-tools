@@ -51,7 +51,6 @@ class Correlation:
         
     def getGraph(self, symbol):
         df = self.getData(symbol)
-        ic(df)
         
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=self.sp500.index,
@@ -159,12 +158,11 @@ class TechnicalAnalysis:
         
 
     def draw_bollinger_upper(self):
-#        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["upper2"], name="", line={"color": "brown", "width": 0})
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["upper2"], name="", line={"color": "brown", "width": 1})
+        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["upper2"], name="Bollinger upper", line={"color": "brown", "width": 1})
 
     
     def draw_bollinger_lower(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["lower2"], name="BB", line={"color": "brown", "width": 1}, fill="tonexty", fillcolor="rgba(170,170,170,.2)")
+        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["lower2"], name="Bollinger lower", line={"color": "brown", "width": 1}, fill="tonexty", fillcolor="rgba(170,170,170,.2)")
 
 
     # MACD, signal, histogram
@@ -176,7 +174,7 @@ class TechnicalAnalysis:
                    name="MACD", line={ "color": "magenta", "width": 1})
 
     def draw_macd_signal(self):
-        return go.Scatter(yaxis="y3", x=self.df["Date"], y=self.df["macd_signal"], name="Signal", line={"color": "green", "width": 1})
+        return go.Scatter(yaxis="y3", x=self.df["Date"], y=self.df["macd_signal"], name="MACD Signal", line={"color": "green", "width": 1})
     def draw_macd_histogram(self):
         return go.Bar(yaxis="y3",x=self.df["Date"], y=self.df["hist"],
                    name="Volume", opacity=0.7, marker_color="darkblue")
@@ -239,8 +237,9 @@ class TechnicalAnalysis:
 
     def draw_spinning_top(self):
         return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["mb_marker"],
-                          mode="markers+text", text=self.df["mb_signal"], textposition ="top center", name = "Marubozu",
-                          marker = {"size": 12, "color": "yellow", "opacity": 0.6},
+                          mode="markers+text", text=self.df["mb_signal"],
+                          textposition ="top center", name = "Spinning top",
+                          marker = {"size": 12, "color": "blue", "opacity": 0.6},
                           textfont = {"size": 14, "color": "grey"})
     
 
@@ -249,7 +248,7 @@ class TechnicalAnalysis:
         return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["eng_marker"],
                    mode="markers+text", text=self.df["eng_signal"],
                    textposition ="top center",
-                   name = "ENGULFING",
+                   name = "Engulfing",
                    marker = {"size": 12, "color": "blue", "opacity": 0.6},
                    textfont = {"size": 14, "color": "black"})
 
@@ -303,7 +302,7 @@ class TechnicalAnalysis:
         # Golden Dead cross
         fig.add_trace(self.draw_golden_cross(), row=1, col=1)
         fig.add_trace(self.draw_dead_cross(),row=1, col=1)
-        fig.add_trace(go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["golden"], name="Golden Cross",  opacity=0.5), row=1, col=1)
+        #fig.add_trace(go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["golden"], name="Golden Cross",  opacity=0.5), row=1, col=1)
         # Bollinger
         fig.add_trace(self.draw_bollinger_upper(), row=1, col=1)
         fig.add_trace(self.draw_bollinger_lower(), row=1, col=1)
@@ -328,9 +327,9 @@ class TechnicalAnalysis:
 
         fig.update_layout(autosize=True)
         fig.update_layout(xaxis_rangeslider_visible=False)
-        fig.update_layout(width=800,height=1400, margin=dict(t=50, b=10, l=15, r=15))
+        fig.update_layout(width=1100,height=1400, margin=dict(t=50, b=10, l=15, r=15))
         # Back ground color for figures 
-        fig.update_layout(paper_bgcolor='#154360',plot_bgcolor='#D6DBDF')
+        #fig.update_layout(paper_bgcolor='#EBEDEF',plot_bgcolor='#D6DBDF')
 
         return fig
 

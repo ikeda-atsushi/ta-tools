@@ -1,183 +1,190 @@
 #-*- coding: utf-8 -*-
 
-import streamlit as st
 import dafinance as fi
-import dash 
-import dash_bootstrap_components as dbc
+from dash import Dash, dcc, html
+from dash.dependencies import Input, Output
 import plotly.graph_objs as go
-import streamlit as st
 from icecream import ic
 
+############ DaLayout
+class DaLayout:
+
+    def __init__(self, app):
+        self.app = app
+        self.df = None
+        self.fig = None 
+        self.analyze = None
+        return
+
+    def layout(self):
+        # Create layout with tabs
+        layout = html.Div([
+            dcc.Tabs(id="tabs-graph", value="home", className="custom-tabs",
+                         children=[
+                             dcc.Tab(label="Home", value="home",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab1_content"),
+                             dcc.Tab(label="Correlation", value="correlation",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab2_content"),
+                             dcc.Tab(label="Stats", value="stats",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab3-content")
+            ]),
+        html.Div(id="tabs-content",className="center"),
+        ])
+
+        return layout
+
+    def register_callback(self):
+        # Tab
+        @self.app.callback(
+            Output('tabs-content', 'children'),
+            Input("tabs-graph", "value")
+            )
+        def render_tab_content(tab):
+            if tab == "home":
+                options = [{'label':'S&P500','value':"^GSPC"},
+                           {'label': 'Palantir Technologies Inc.', 'value':'PLTR'},
+                           {'label': 'D-Wave Quantum Inc.', 'value':'QBTS'},
+                           {'label': 'IonQ Inc.', 'value':'IONQ'},
+                           {'label': 'Plladyne AI Corp.', 'value':'PDYN'},
+                           {'label': 'BigBear AI Holdings', 'value':'BBAI'},
+                           {'label': 'Intel Corp.', 'value':'INTC'},
+                           {'label': 'Nebius Group', 'value':'NBIS'},
+                           {'label': 'Direxion Shares ETF', 'value':'TSLL'},
+                           {'label': 'Rezolve AI Limited', 'value':'RZLV'},
+                           {'label': 'Newmont Corporation', 'value':'NEM'}]
+
+                sidebar = html.Div(
+                    id = "sidebar1",
+                    className="sidebar",
+                    children =
+                    [   dcc.Dropdown(
+                            id="dropdown_1",
+                            options=options,
+                            value=options[0]["value"],
+                            className="dropdown-menu"
+                            ),
+                            
+                        dcc.RadioItems(
+                            id="radioitems-signals",
+                            options=[
+                                {"label": "Spinning top", "value": 1},
+                                {"label": "Engulfing", "value": 2},
+                                {"label": "3 Outside", "value": 3},
+                                {"label": "3 Inside", "value": 4},
+                                {"label": "None", "value": 5}],
+                                value=5,
+                                inline=False
+                        )
+                    ]
+                    ) # Div
+
+                if self.fig is None:
+                    tab = html.Div([
+                        sidebar,
+                        dcc.Graph(id="graph1")
+                        ])
+                else:
+                    tab = html.Div([
+                        sidebar,
+                        dcc.Graph(id="graph1", figure=self.fig)                 
+                        ])
+
+                return tab
+                
+            elif tab == "correlation":
+                options = [{"label": "Copper", "value": "HG=F"},
+                               {"label": "Semiconductor", "value": "SOXX"},
+                               {"label": "Transportation Average Index", "value": "DJT"},
+                               {"label": "Russel 2000", "value": "^RUT"}, # Small Cap stock
+                               {"label": "Volatility Index", "value": "^VIX"},
+                               {"label": "Skew", "value": "^SKEW"},
+                               {"label": "Gold", "value": "GLD"},
+                               {"label": "Doller Index", "value": "DX-Y.NYB"},
+                               {"label": "High Yeild Index", "value": "HYG"}, # Junk Bond
+                               {"label": "US 10 years Bond", "value": "^TNX"} 
+                               ]
+
+                sidebar = html.Div(
+                        dcc.Dropdown(
+                            id="dropdown_2",
+                            options=options,
+                            value=options[0]["value"],
+                            className="dropdown-menu"
+                            ),
+                            id = "sidebar2",
+                            className="sidebar"
+                    )
+
+                tab = html.Div([
+                        sidebar,
+                        dcc.Graph(id="graph2")
+                    ])
+
+                return tab
+            
+            elif tab == "stats":
+                return self.layout.tab3()
+            
+        ### Dropdown Home
+        @self.app.callback(
+            Output("graph1", "figure"),
+            [Input("dropdown_1", "value")])
+        def update_graph1(symbol):
+                self.ticker = symbol
+                ### Get Histrical Data
+                self.df = fi.StockData(self.ticker).getHistory()
+                # Technical Analyze
+                self.analyze =  fi.TechnicalAnalysis(self.df)
+                self.fig =  self.analyze.charts(self.ticker)
+                return self.fig
+
+        # Radio button
+        @self.app.callback(
+            Output("graph1", "figure", allow_duplicate=True),
+            [Input("radioitems-signals", "value")],
+            prevent_initial_call=True)
+        def add_trend_signal(signal):
+            if signal == 1:
+                return self.fig.add_traces(self.analyze.draw_spinning_top())
+            elif signal == 2:
+               return self.fig.add_traces(self.analyze.draw_engulfing())
+            elif signal == 3:
+               return self.fig.add_traces(self.analyze.draw_three_outside())
+            elif signal == 4:
+               return self.fig.add_traces(self.analyze.draw_three_inside())
+            elif signal == 5:
+               self.fig =  self.analyze.charts(self.ticker)
+               return self.fig
+
+        # Dropdown Correlation
+        @self.app.callback(
+            Output("graph2", "figure"),
+            [Input("dropdown_2", "value")])
+        def update_graph2(symbol):
+            self.ticker = symbol
+            cor = fi.Correlation()
+            return cor.getGraph(self.ticker)
+
+    
+################ Dashboard
 
 class Dashboard():
 
     def __init__(self):
-        
-        self.ticker  = None
-        self.analyze = None
-        self.fig     = None
-        self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.VAPOR])
-        
+        self.app = Dash(__name__, suppress_callback_exceptions=True)
+        dlayout = DaLayout(self.app)
+        self.app.layout = dlayout.layout()
+        dlayout.register_callback()
 
-        if 'spinning_top' not in st.session_state:
-            st.session_state.spinning_top = 0
-
-        if 'engulfing' not in st.session_state:
-            st.session_state.engulfing = 0
-
-        if 'three_outside' not in st.session_state:
-            st.session_state.three_outside = 0
-
-        if 'three_inside' not in st.session_state:
-            st.session_state.three_inside = 0
-            
-    
-    def main(self):
-
-        # Left side bar
-        with st.sidebar.container():
-            option = st.selectbox(
-                      "Pick one of tickers",
-                ('S&P500',"PLTR", "QBTS","IONQ","PDYN", "BBAI", "INTC", "NBIS", "TSLL", "RZLV")
-            )
-            match option:
-               case "PLTR":
-                  self.ticker = "PLTR"
-               case "QBTS":
-                  self.ticker = "QBTS"
-               case "IONQ":
-                  self.ticker = "IONQ"
-               case "PDYN":
-                  self.ticker = "PDYN"
-               case "BBAI":
-                  self.ticker = "BBAI"
-               case "INTC":
-                  self.ticker = "INTC"
-               case "NBIS":
-                  self.ticker = "NBIS"
-               case "TSLL":
-                  self.ticker = "TSLL"
-               case "S&P500":
-                  self.ticker = "^GSPC"
-               case "RZLV":
-                  self.ticker = "RZLV"
-               case _:
-                  self.ticker = None
-
-        ### Get Histrical Data 
-        df = fi.StockData(self.ticker).getHistory()
-        if df is not None:
-            # Technical Analyze
-            self.analyze =  fi.TechnicalAnalysis(df)
-            # Display charts
-            self.fig = self.analyze.charts(self.ticker)
-        else:
-            self.analyze = None
-
-        # Side bar
-        with  st.sidebar:
-            # 2 columns in side bar
-            col1, col2 = st.columns(2, vertical_alignment="center")
-
-            # Spinning top
-            if col1.button("Spinning top", type="primary"):
-                if self.ticker is None:
-                    return
-                if st.session_state.spinning_top == 0:
-                    self.fig.add_traces(self.analyze.draw_spinning_top())
-                    st.session_state.Spinning_top = 1
-                else:
-                    # Redraw figures 
-                    go.FigureWidget(self.fig)
-                    st.session_state.Spinning_top = 0
-
-            # Engulfing
-            if col2.button("Engulfing", type="primary"):
-                if self.ticker is None:
-                    return
-                if st.session_state.engulfing == 0:
-                    self.fig.add_traces(self.analyze.draw_engulfing())
-                    st.session_state.engulfing = 1
-                else:
-                    # Redraw figures 
-                    go.FigureWidget(self.fig)
-                    st.session_state.engulfing = 0
-
-            # 3 outside
-            if col1.button("3 Outside", type="primary"):
-                if self.ticker is None:
-                    return
-                if st.session_state.three_outside == 0:
-                    self.fig.add_traces(self.analyze.draw_three_outside())
-                    st.session_state.three_outside = 1
-                else:
-                    # Redraw figures 
-                    go.FigureWidget(self.fig)
-                    st.session_state.three_outside = 0
-
-            # 3 inside
-            if col2.button("3 Inside", type="primary"):
-                if self.ticker is None:
-                    return
-                if st.session_state.three_inside == 0:
-                    self.fig.add_traces(self.analyze.draw_three_inside())
-                    st.session_state.three_inside = 1
-                else:
-                    # Redraw figures 
-                    go.FigureWidget(self.fig)
-                    st.session_state.three_inside = 0
-                    
-
-        # Center
-        with st.container():
-
-            tab1, tab2, tab3 = st.tabs(["Charts", "Correlation", "None"])
-
-            with tab1:
-                st.header(self.ticker)
-
-                if self.fig is not None:
-                    st.plotly_chart(self.fig)
-
-            with tab2:
-                st.header("Correlation")
-
-                option = st.selectbox(
-                    "Pick one of Index",
-                    ("Copper", "Semiconductor","Transportation Average","Russel2000", "VIX", "SKEW", "Gold", "Dollar index", "High Yield index", "10 years Bond")
-                    )
-                match option:
-                    case "Copper":
-                        self.ticker = "HG=F"
-                    case "Semiconductor":
-                        self.ticker = "SOXX"
-                    case "Transportation Average":
-                        self.ticker = "DJT"
-                    case "Russel2000":
-                        self.ticker = "^RUT"
-                    case "VIX":
-                        self.ticker = "VIX"
-                    case "SKEW":
-                        self.ticker = "^SKEW"
-                    case "Gold":
-                        self.ticker = "GLD"
-                    case "Dollar index":
-                        self.ticker = "DX-Y.NYB"
-                    case "High Yield index":
-                        self.ticker = "HYG"
-                    case "10 Years Bond":
-                        self.ticker = "^TNX"
-
-                cor = fi.Correlation()
-                fig = cor.getGraph(self.ticker)
-                # fig.show()
-                
-
-            with tab3:
-                st.header("None")
+    def run(self):
+        self.app.run_server(debug=True)
 
 
 if __name__ == "__main__":
-
-    app = Dashboard()
-    app.main()
+    Dashboard().run()
