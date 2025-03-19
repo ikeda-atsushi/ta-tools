@@ -29,18 +29,18 @@ copper = copper.drop(columns=['open','high','low','adjclose','volume'])
 #copper_mean = copper['close'].mean()
 #copper_close = copper['close'] * (sp500_mean/copper_mean)
 
-# SOX
+# Semiconductor
 sox = yf.get_data('SOXX')
 sox = sox.tail(360)
 sox = sox.drop(columns=['open','high','low','adjclose','volume'])
 
 
-# DJTA
+# Transportation Average Index
 djt = yf.get_data('DJT')
 djt = djt.tail(360)
 djt = djt.drop(columns=['open','high','low','adjclose','volume'])
 
-# Russel 2000
+# Russel 2000  Average of Small capitalization stocks
 rut = yf.get_data('^RUT')
 rut = rut.tail(360)
 rut = rut.drop(columns=['open','high','low','adjclose','volume'])
