@@ -1,8 +1,10 @@
 #-*- coding: utf-8 -*-
 
+import yfinance as yf
+from yfinance import EquityQuery
 import dafinance as fi
 from dash import Dash, dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 from icecream import ic
 
@@ -29,7 +31,7 @@ class DaLayout:
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab2_content"),
-                             dcc.Tab(label="Stats", value="stats",
+                             dcc.Tab(label="Screen", value="screen",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab3-content")
@@ -64,7 +66,7 @@ class DaLayout:
                     className="sidebar",
                     children =
                     [   dcc.Dropdown(
-                            id="dropdown_1",
+                            id="dropdown1",
                             options=options,
                             value=options[0]["value"],
                             className="dropdown-menu"
@@ -82,18 +84,12 @@ class DaLayout:
                                 inline=False
                         )
                     ]
-                    ) # Div
+                    ) # Sidebar
 
-                if self.fig is None:
-                    tab = html.Div([
-                        sidebar,
-                        dcc.Graph(id="graph1")
-                        ])
-                else:
-                    tab = html.Div([
-                        sidebar,
-                        dcc.Graph(id="graph1", figure=self.fig)                 
-                        ])
+                tab = html.Div([
+                    sidebar,
+                    dcc.Graph(id="graph1")
+                ])
 
                 return tab
                 
@@ -112,7 +108,7 @@ class DaLayout:
 
                 sidebar = html.Div(
                         dcc.Dropdown(
-                            id="dropdown_2",
+                            id="dropdown2",
                             options=options,
                             value=options[0]["value"],
                             className="dropdown-menu"
@@ -128,21 +124,65 @@ class DaLayout:
 
                 return tab
             
-            elif tab == "stats":
-                return self.layout.tab3()
+            elif tab == "screen":
+                predefined={
+                    'aggressive_small_caps':'Aggressive small caps',
+                    'day_gainers':'Day gainers',
+                    'day_losers':'Day losers',
+                    'growth_technology_stocks':'Growth technology stocks',
+                    'most_actives':'Most actives',
+                    'most_shorted_stocks':'Most shorted stocks',
+                    'small_cap_gainers':'Small cap gainers',
+                    'undervalued_growth_stocks':'Undervalued growth stocks',
+                    'undervalued_large_caps':'Undervalued large caps',
+                    'conservative_foreign_funds':'Conservative foreign funds',
+                    'high_yield_bond':'High yield bond',
+                    'portfolio_anchors':'Portfolio anchors',
+                    'solid_large_growth_funds':'Solid large growth funds',
+                    'solid_midcap_growth_funds':'Solid midcap growth funds'}
+
+                sidebar = html.Div(
+                    id = "sidebar3",
+                    className="sidebar",
+                    children =
+                    [
+                    html.H2("Predefined Screen Menu"),
+                    dcc.Dropdown(
+                        id='dropdown3',
+                        options=[{'label': v, 'value': k} for k, v in predefined.items()],
+                        value='most_actives'
+                        ),
+                    html.Div(
+                        children=[
+                        dcc.Store(id='screened-symbols-store'),
+                        html.H1('Selected symbols'),
+                        html.Div(id="screened-symbols-dropdown")
+                    ])
+                    ]
+                ) # Sidebar
+
+                # Set initial dropdown value correctly to an existing key
+                tab = html.Div([
+                    sidebar,
+                    dcc.Graph(id='graph3')
+                 ])
+
+                return tab
             
         ### Dropdown Home
         @self.app.callback(
             Output("graph1", "figure"),
-            [Input("dropdown_1", "value")])
+            [Input("dropdown1", "value")])
         def update_graph1(symbol):
-                self.ticker = symbol
-                ### Get Histrical Data
-                self.df = fi.StockData(self.ticker).getHistory()
-                # Technical Analyze
-                self.analyze =  fi.TechnicalAnalysis(self.df)
-                self.fig =  self.analyze.charts(self.ticker)
-                return self.fig
+            if symbol is None:
+                return None
+            ### Get Histrical Data
+            df = fi.StockData(symbol).getHistory()
+            # Technical Analyze
+            self.analyze =  fi.TechnicalAnalysis(df)
+            self.fig =  self.analyze.charts(symbol)
+            return self.fig
+
 
         # Radio button
         @self.app.callback(
@@ -165,11 +205,47 @@ class DaLayout:
         # Dropdown Correlation
         @self.app.callback(
             Output("graph2", "figure"),
-            [Input("dropdown_2", "value")])
+            [Input("dropdown2", "value")])
         def update_graph2(symbol):
             self.ticker = symbol
             cor = fi.Correlation()
             return cor.getGraph(self.ticker)
+
+        # Screen tab3 
+        @self.app.callback(
+            Output('screened-symbols-dropdown', 'children'),
+            Input('dropdown3', 'value'),
+            )
+        def update_screen(symbol):
+            q = yf.PREDEFINED_SCREENER_QUERIES[symbol]
+            res = yf.screen(q['query'], q['sortField'], q['sortType'])
+
+            options = [{'label': quote.get('longName', quote.get('displayName', 'Unknown')),
+                            'value': quote['symbol']} for quote in res['quotes']]
+            content = html.Div(
+                children=[
+                    html.H1('Selected symbols'),
+                    dcc.Dropdown(options=options, id="selected-symbol-dropdown")
+                ])
+
+            return content
+
+        # 修正した update_graph3
+        @self.app.callback(
+            Output('graph3', 'figure'),
+            Input('selected-symbol-dropdown', 'value'),
+            State('screened-symbols-store', 'data')
+            )
+        def update_graph3(symbol, options):
+            if symbol is None:
+                return go.Figure()
+
+            df = fi.StockData(symbol).getHistory()
+            if df is None or df.empty:
+                return go.Figure()
+
+            analyze = fi.TechnicalAnalysis(df)
+            return analyze.charts(symbol)
 
     
 ################ Dashboard
