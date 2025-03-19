@@ -176,6 +176,7 @@ class DaLayout:
         def update_graph1(symbol):
             if symbol is None:
                 return None
+            self.ticker = symbol
             ### Get Histrical Data
             df = fi.StockData(symbol).getHistory()
             # Technical Analyze
@@ -187,7 +188,7 @@ class DaLayout:
         # Radio button
         @self.app.callback(
             Output("graph1", "figure", allow_duplicate=True),
-            [Input("radioitems-signals", "value")],
+            Input("radioitems-signals", "value"),
             prevent_initial_call=True)
         def add_trend_signal(signal):
             if signal == 1:
