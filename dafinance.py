@@ -23,7 +23,8 @@ class StockData:
 
     def getHistory(self):
         if self.ticker is None:
-            return None
+            return pd.DataFrame()
+
         self.filename = 'data/' + self.ticker+'.csv'
         if os.path.isfile(self.filename):
             df = pd.read_csv(self.filename)
