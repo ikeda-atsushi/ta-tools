@@ -1,9 +1,10 @@
 #-*- coding: utf-8 -*-
 
+import pandas as pd
 import yfinance as yf
 from yfinance import EquityQuery
 import dafinance as fi
-from dash import Dash, dcc, html
+from dash import Dash, dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 from icecream import ic
@@ -16,25 +17,31 @@ class DaLayout:
         self.df = None
         self.fig = None 
         self.analyze = None
+        self.ticker = None
         return
 
     def layout(self):
         # Create layout with tabs
         layout = html.Div([
-            dcc.Tabs(id="tabs-graph", value="home", className="custom-tabs",
+            dcc.Tabs(id="tabs-stock", value="home", className="custom-tabs",
                          children=[
                              dcc.Tab(label="Home", value="home",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
-                                         id="tab1_content"),
-                             dcc.Tab(label="Correlation", value="correlation",
-                                         className="custom-tab",
-                                         selected_className="custom-tab-selected",
-                                         id="tab2_content"),
+                                         id="tab1-content"),
                              dcc.Tab(label="Screen", value="screen",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
-                                         id="tab3-content")
+                                         id="tab2-content"),
+                             dcc.Tab(label="Info", value="info",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab3-content"),
+                             dcc.Tab(label="Correlation", value="correlation",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab4-content"),
+            
             ]),
         html.Div(id="tabs-content",className="center"),
         ])
@@ -45,11 +52,16 @@ class DaLayout:
         # Tab
         @self.app.callback(
             Output('tabs-content', 'children'),
-            Input("tabs-graph", "value")
+            Input("tabs-stock", "value")
             )
         def render_tab_content(tab):
             if tab == "home":
                 options = [{'label':'S&P500','value':"^GSPC"},
+                           {'label': 'Cellebrite DI Ltd.', 'value':'CLBT'},
+                           {'label': 'Tenaris S.A.', 'value':'TS'},
+                           {'label': 'SiriusPointLtd.', 'value':'SPNT'},
+                           {'label': 'Western Midstream Partners', 'value':'WES'},
+                           {'label': 'Rezolve AI Limited', 'value':'RZLV'},
                            {'label': 'Palantir Technologies Inc.', 'value':'PLTR'},
                            {'label': 'D-Wave Quantum Inc.', 'value':'QBTS'},
                            {'label': 'IonQ Inc.', 'value':'IONQ'},
@@ -58,7 +70,6 @@ class DaLayout:
                            {'label': 'Intel Corp.', 'value':'INTC'},
                            {'label': 'Nebius Group', 'value':'NBIS'},
                            {'label': 'Direxion Shares ETF', 'value':'TSLL'},
-                           {'label': 'Rezolve AI Limited', 'value':'RZLV'},
                            {'label': 'Newmont Corporation', 'value':'NEM'}]
 
                 sidebar = html.Div(
@@ -93,37 +104,6 @@ class DaLayout:
 
                 return tab
                 
-            elif tab == "correlation":
-                options = [{"label": "Copper", "value": "HG=F"},
-                               {"label": "Semiconductor", "value": "SOXX"},
-                               {"label": "Transportation Average Index", "value": "DJT"},
-                               {"label": "Russel 2000", "value": "^RUT"}, # Small Cap stock
-                               {"label": "Volatility Index", "value": "^VIX"},
-                               {"label": "Skew", "value": "^SKEW"},
-                               {"label": "Gold", "value": "GLD"},
-                               {"label": "Doller Index", "value": "DX-Y.NYB"},
-                               {"label": "High Yeild Index", "value": "HYG"}, # Junk Bond
-                               {"label": "US 10 years Bond", "value": "^TNX"} 
-                               ]
-
-                sidebar = html.Div(
-                        dcc.Dropdown(
-                            id="dropdown2",
-                            options=options,
-                            value=options[0]["value"],
-                            className="dropdown-menu"
-                            ),
-                            id = "sidebar2",
-                            className="sidebar"
-                    )
-
-                tab = html.Div([
-                        sidebar,
-                        dcc.Graph(id="graph2")
-                    ])
-
-                return tab
-            
             elif tab == "screen":
                 predefined={
                     'aggressive_small_caps':'Aggressive small caps',
@@ -168,6 +148,47 @@ class DaLayout:
                  ])
 
                 return tab
+
+            ### Company Info
+            elif tab == "info":
+                stock = yf.Ticker(self.ticker)
+                info = stock.info
+                tab = html.Div([ html.P(k + " : " + str(info[k])) for k in info.keys()])
+
+                return tab 
+
+            ### Correlation
+            elif tab == "correlation":
+                options = [{"label": "Copper", "value": "HG=F"},
+                               {"label": "Semiconductor", "value": "SOXX"},
+                               {"label": "Transportation Average Index", "value": "DJT"},
+                               {"label": "Russel 2000", "value": "^RUT"}, # Small Cap stock
+                               {"label": "Volatility Index", "value": "^VIX"},
+                               {"label": "Skew", "value": "^SKEW"},
+                               {"label": "Gold", "value": "GLD"},
+                               {"label": "Doller Index", "value": "DX-Y.NYB"},
+                               {"label": "High Yeild Index", "value": "HYG"}, # Junk Bond
+                               {"label": "US 10 years Bond", "value": "^TNX"} 
+                               ]
+
+                sidebar = html.Div(
+                        dcc.Dropdown(
+                            id="dropdown2",
+                            options=options,
+                            value=options[0]["value"],
+                            className="dropdown-menu"
+                            ),
+                            id = "sidebar2",
+                            className="sidebar"
+                    )
+
+                tab = html.Div([
+                        sidebar,
+                        dcc.Graph(id="graph2")
+                    ])
+
+                return tab
+
             
         ### Dropdown Home
         @self.app.callback(
@@ -183,7 +204,6 @@ class DaLayout:
             self.analyze =  fi.TechnicalAnalysis(df)
             self.fig =  self.analyze.charts(symbol)
             return self.fig
-
 
         # Radio button
         @self.app.callback(
