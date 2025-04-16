@@ -41,6 +41,10 @@ class DaLayout:
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab4-content"),
+                             dcc.Tab(label="Volatility", value="volatility",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab5-content"),
             
             ]),
         html.Div(id="tabs-content",className="center"),
@@ -62,8 +66,10 @@ class DaLayout:
                            {'label': 'SiriusPointLtd.', 'value':'SPNT'},
                            {'label': 'Western Midstream Partners', 'value':'WES'},
                            {'label': 'Rezolve AI Limited', 'value':'RZLV'},
+                           {'label': 'US steel', 'value':'X'},
                            {'label': 'Palantir Technologies Inc.', 'value':'PLTR'},
                            {'label': 'D-Wave Quantum Inc.', 'value':'QBTS'},
+                           {'label': 'Quantum Computing Inc.', 'value':'QUBT'},
                            {'label': 'IonQ Inc.', 'value':'IONQ'},
                            {'label': 'Plladyne AI Corp.', 'value':'PDYN'},
                            {'label': 'BigBear AI Holdings', 'value':'BBAI'},
@@ -97,12 +103,12 @@ class DaLayout:
                     ]
                     ) # Sidebar
 
-                tab = html.Div([
+                tab_content  = html.Div([
                     sidebar,
                     dcc.Graph(id="graph1")
                 ])
 
-                return tab
+                return tab_content
                 
             elif tab == "screen":
                 predefined={
@@ -142,20 +148,20 @@ class DaLayout:
                 ) # Sidebar
 
                 # Set initial dropdown value correctly to an existing key
-                tab = html.Div([
+                tab_content = html.Div([
                     sidebar,
                     dcc.Graph(id='graph3')
                  ])
 
-                return tab
+                return tab_content
 
             ### Company Info
             elif tab == "info":
                 stock = yf.Ticker(self.ticker)
                 info = stock.info
-                tab = html.Div([ html.P(k + " : " + str(info[k])) for k in info.keys()])
+                tab_content = html.Div([ html.P(k + " : " + str(info[k])) for k in info.keys()])
 
-                return tab 
+                return tab_content 
 
             ### Correlation
             elif tab == "correlation":
@@ -182,13 +188,80 @@ class DaLayout:
                             className="sidebar"
                     )
 
-                tab = html.Div([
+                tab_content  = html.Div([
                         sidebar,
                         dcc.Graph(id="graph2")
                     ])
 
-                return tab
+                return tab_content
 
+            ### Volatility
+            elif tab == "volatility":
+
+                # 銘柄リスト（必要に応じて追加）
+                default_tickers = ["AAPL", "MSFT", "GOOGL", "TSLA", "AMZN", "NVDA", "PLTR"]
+
+
+                # Volatility category data (in English)
+                data = {
+                    "Annual Volatility": ["~5%", "10–15%", "20–30%", "40–60%", "80% or more"],
+                    "Monthly Equivalent": ["~1.4%", "2.9–4.3%", "5.8–8.7%", "11–17%", ">20%"],
+                    "Asset Type / Interpretation": [
+                        "Bonds, ultra-stable ETFs",
+                        "Index funds (e.g., S&P 500)",
+                        "Growth stocks, tech stocks, typical equities",
+                        "High-volatility stocks, emerging markets, thematic stocks",
+                        "Cryptocurrencies, disruptive innovation stocks, speculative assets"
+                        ]
+                    }
+
+                # Create DataFrame for the bottom table
+                volatility_df = pd.DataFrame(data)
+
+                # アプリレイアウト
+                tab_content = html.Div([
+                        html.H2("月率ボラティリティ可視化ツール", style={"textAlign": "center"}),
+
+                        html.Label("対象銘柄をカンマで入力（例: AAPL, MSFT, TSLA）:"),
+                        dcc.Input(id="ticker-input", value=",".join(default_tickers), type="text", style={'width': '100%'}),
+    
+                        html.Label("期間指定:"),
+                        dcc.DatePickerRange(
+                            id="date-picker",
+                            start_date="2023-01-01",
+                            end_date="2024-12-31"
+                            ),
+
+                        html.Br(), html.Br(),
+                        # Insert a histom graph here
+                        dcc.Graph(id="volatility-graph"),
+                        html.Br(), html.Br(),
+                        
+                        dash_table.DataTable(
+                            columns=[{"name": col, "id": col} for col in volatility_df.columns],
+                            data=volatility_df.to_dict("records"),
+                            style_table={
+                                "overflowX": "auto"
+                                },
+                                style_cell={
+                                    "textAlign": "left",
+                                    "color": "#333333",           # 全セルのフォント色
+                                    "backgroundColor": "#b6cade"  # ← セルの背景色
+                                    },
+                                    style_header={
+                                        "backgroundColor": "#1f77b4",  # ← ヘッダーの背景色
+                                        "color": "Black",
+                                        "fontWeight": "bold"
+                                        },
+                                        style_data={
+                                            "color": "#000080",            # データ部のフォント色
+                                            "backgroundColor": "#f0f8ff"  # ← データ部分の背景色
+                                            }
+                        )
+                    ])
+
+                
+                return tab_content
             
         ### Dropdown Home
         @self.app.callback(
@@ -232,7 +305,7 @@ class DaLayout:
             cor = fi.Correlation()
             return cor.getGraph(self.ticker)
 
-        # Screen tab3 
+        # Tab3 
         @self.app.callback(
             Output('screened-symbols-dropdown', 'children'),
             Input('dropdown3', 'value'),
@@ -245,13 +318,13 @@ class DaLayout:
                             'value': quote['symbol']} for quote in res['quotes']]
             content = html.Div(
                 children=[
-                    html.H1('Selected symbols'),
+                    #html.H1('Selected symbols'),
                     dcc.Dropdown(options=options, id="selected-symbol-dropdown")
                 ])
 
             return content
 
-        # 修正した update_graph3
+        # update_graph3
         @self.app.callback(
             Output('graph3', 'figure'),
             Input('selected-symbol-dropdown', 'value'),
@@ -267,6 +340,21 @@ class DaLayout:
 
             analyze = fi.TechnicalAnalysis(df)
             return analyze.charts(symbol)
+
+        
+        # Callback for Volatility
+        @self.app.callback(
+            Output("volatility-graph", "figure"),
+            Input("ticker-input", "value"),
+            Input("date-picker", "start_date"),
+            Input("date-picker", "end_date")
+            )
+        def update_graph4 (ticker_input, start_date, end_date):
+            tickers = [t.strip().upper() for t in ticker_input.split(",")]
+
+            analyze = fi.Volatility(tickers, start_date, end_date)
+
+            return analyze.getGraph()
 
     
 ################ Dashboard

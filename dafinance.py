@@ -38,6 +38,13 @@ class StockData:
         df.to_csv(self.filename, encoding='utf-8')
         return df.tail(360)
 
+    def flieName(self):
+        return self.filename
+
+    def write(self):
+
+        return
+
 class Correlation:
 
     DAYS = 360
@@ -77,6 +84,50 @@ class Correlation:
         fig.update_traces(selector=1, line=dict(color='brown', width=3))
 
         return fig
+
+
+class Volatility:
+    fig = None
+    tickers = []
+
+    def __init__(self, tickers, start_date, end_date):
+        self.tickers = tickers
+        self.start_date = start_date
+        self.end_date = end_date
+        return 
+
+    def getGraph(self):
+        annual_vols = []
+
+        for ticker in self.tickers:
+            try:
+                df = yf.download(ticker, start=self.start_date, end=self.end_date)
+                df = df[['Close']].dropna()
+                df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
+                df.dropna(inplace=True)
+                daily_vol = df['LogReturn'].std()
+                annual_vol = daily_vol * np.sqrt(252/12)
+                annual_vols.append(round(annual_vol * 100, 2))  # %表示
+            except Exception as e:
+                annual_vols.append(None)
+
+            self.fig = go.Figure(data=[
+                go.Bar(
+                    x=self.tickers,
+                    y=annual_vols,
+                    text=[f"{v}%" if v is not None else "取得失敗" for v in annual_vols],
+                    textposition="auto"
+                        )
+                ])
+
+            self.fig.update_layout(
+                title="月率ボラティリティ（複数銘柄）",
+                yaxis_title="ボラティリティ（%）",
+                xaxis_title="銘柄",
+                template="plotly_white"
+                )
+        return self.fig
+
         
 
 class TechnicalAnalysis:
