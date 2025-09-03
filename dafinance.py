@@ -5,71 +5,84 @@ import pandas as pd
 import talib as ta
 import numpy as np
 import datetime as dt
-import os
 import plotly.graph_objs as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from nicegui import ui
-from icecream import ic 
+from icecream import ic
+import yahoofinance
+import stooq
+import neverfinance
+import os
+
+SP500 = '^GSPC'
 
 
 class StockData:
 
-    def __init__(self, ticker):
-        if ticker is not None:
-            self.ticker = ticker
-        else:
-            self.ticker = None
+    def __init__(self):
+        self._broker = {'Yahoo': yahoofinance.Yahoo(), 'Stooq': stooq.Stooq(), 'NeverFinance': neverfinance.NeverFinance()}
+        self.broker_name = 'Yahoo'
+        return
 
-    def getHistory(self):
-        if self.ticker is None:
-            return pd.DataFrame()
+    def getHistory(self, symbol, start='2023-01-01', end=dt.datetime.today().strftime('%Y-%m-%d')):
+        return  self._broker[self.broker_name].getHistory(symbol, start, end)
+        
+    def fileName(self, symbol):
+        return 'data/' +  symbol + '.csv'
 
-        self.filename = 'data/' + self.ticker+'.csv'
-        if os.path.isfile(self.filename):
-            df = pd.read_csv(self.filename)
-            df.index = pd.to_datetime(df['Date'], utc=True)
-            return df.tail(360)
+    def registerSymbol(self, symbol):
 
-        company = yf.Ticker(self.ticker)
-        df = company.history(period='1Y')
-        df.index.name = "Date"
-        df['weekday'] = df.index.weekday
-        df.to_csv(self.filename, encoding='utf-8')
-        return df.tail(360)
 
-    def flieName(self):
-        return self.filename
+        return
 
+    
     def write(self):
-
         return
 
 class Correlation:
 
-    DAYS = 360
-    
     def __init__(self):
-        self.sp500 = self.getData('^GSPC')
+
+        self.sp500 = self.getData(SP500)
+
 
     def getData(self, symbol):
-        sd = StockData(symbol)
-        df = sd.getHistory().tail(self.DAYS)
-        return df.drop(columns=['Open','High','Low','Volume', 'Dividends', 'Stock Splits'])
-        
+
+        sd = StockData()
+        df = sd.getHistory(symbol)
+
+        return df
+
     def getGraph(self, symbol):
+
         df = self.getData(symbol)
+
+        #######
+        # Change Date to datetime
+        self.sp500["Date"] = pd.to_datetime(self.sp500['Date'])
+        df['Date']         = pd.to_datetime(df["Date"])
         
+        # Get common date range
+        start_date = max(self.sp500["Date"].min(), df["Date"].min())   # start date
+        end_date   = min(self.sp500["Date"].max(), df["Date"].max())   # end date
+
+        #ic(self.sp500[(self.sp500["Date"] >= start_date) & (self.sp500["Date"] <= end_date)].reset_index(drop=True))
+        
+        # Filtering 
+        sp500_aligned = self.sp500[(self.sp500["Date"] >= start_date) & (self.sp500["Date"] <= end_date)].reset_index(drop=True)
+        df_aligned    = df[(df["Date"] >= start_date) & (df["Date"] <= end_date)].reset_index(drop=True)
+
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=self.sp500.index,
-                                     y=self.sp500['Close'],
+        fig.add_trace(go.Scatter(x=sp500_aligned['Date'],
+                                     y=sp500_aligned['Close'],
                                      mode='lines',
-                                     name='S&P500',
+                                     name='S&P 500',
                                      yaxis='y1')
 
                           )
-        fig.add_trace(go.Scatter(x=df.index,
-                                     y=df['Close'],
+        fig.add_trace(go.Scatter(x=df_aligned['Date'],
+                                     y=df_aligned['Close'],
                                      mode='lines',
                                      name=symbol,
                                      yaxis='y2')
@@ -80,8 +93,11 @@ class Correlation:
                                               showgrid=False,
                                               overlaying='y'))
 
-        fig.update_traces(selector=0, line=dict(color='blue', width=3))
+        fig.update_layout(title="Correlation")
+        
+        fig.update_traces(selector=0, line=dict(color='blue',  width=3))
         fig.update_traces(selector=1, line=dict(color='brown', width=3))
+
 
         return fig
 
@@ -98,10 +114,11 @@ class Volatility:
 
     def getGraph(self):
         annual_vols = []
-
+        
         for ticker in self.tickers:
             try:
-                df = yf.download(ticker, start=self.start_date, end=self.end_date)
+                ############## remove yf.download !!!! ********
+                df = StockData().getHistory(ticker, self.start_date, self.end_date)
                 df = df[['Close']].dropna()
                 df['LogReturn'] = np.log(df['Close'] / df['Close'].shift(1))
                 df.dropna(inplace=True)
@@ -115,15 +132,15 @@ class Volatility:
                 go.Bar(
                     x=self.tickers,
                     y=annual_vols,
-                    text=[f"{v}%" if v is not None else "取得失敗" for v in annual_vols],
+                    text=[f"{v}%" if v is not None else "Failed to get symbols" for v in annual_vols],
                     textposition="auto"
                         )
                 ])
 
             self.fig.update_layout(
-                title="月率ボラティリティ（複数銘柄）",
-                yaxis_title="ボラティリティ（%）",
-                xaxis_title="銘柄",
+                title="Monthly volatility (maltiple brand)",
+                yaxis_title="Volatility (%)",
+                xaxis_title="Brand",
                 template="plotly_white"
                 )
         return self.fig
@@ -132,11 +149,15 @@ class Volatility:
 
 class TechnicalAnalysis:
 
-    def __init__(self, ohlc_history):
-        self.df = ohlc_history
-        self.start = dt.datetime(2020,1,1)
-        self.end   = dt.datetime.today()
-        self.df['Date'] = pd.to_datetime(self.df.index,format="mixed", dayfirst=False, utc=True).strftime('%Y-%m-%d')
+    def __init__(self, df):
+        if df is None:
+            self.df = None
+            return None
+        
+        self.df = df
+        
+        self.df.set_index('Date', inplace=True)
+
         # 5 and 25 days average
         self.df['ma5']  = ta.SMA(self.df['Close'], 5)
         self.df['ma25'] = ta.SMA(self.df['Close'], 25)
@@ -194,12 +215,12 @@ class TechnicalAnalysis:
 
     def draw_golden_cross(self):
         # Golden Cross
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["golden"], name="Golden Cross",
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["golden"], name="Golden Cross",
                           opacity=0.5, mode="markers",marker={"size":15, "color": "green", "symbol":"triangle-up"})
 
     def draw_dead_cross(self):
         # Dead Cross
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["dead"], name="Dead Cross",
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["dead"], name="Dead Cross",
                           opacity=0.8, mode="markers",
                           marker={"size":15, "color": "red", "symbol":"triangle-down"})
 
@@ -210,11 +231,11 @@ class TechnicalAnalysis:
         
 
     def draw_bollinger_upper(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["upper2"], name="Bollinger upper", line={"color": "brown", "width": 1})
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["upper2"], name="Bollinger upper", line={"color": "brown", "width": 1})
 
     
     def draw_bollinger_lower(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["lower2"], name="Bollinger lower", line={"color": "brown", "width": 1}, fill="tonexty", fillcolor="rgba(170,170,170,.2)")
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["lower2"], name="Bollinger lower", line={"color": "brown", "width": 1}, fill="tonexty", fillcolor="rgba(170,170,170,.2)")
 
 
     # MACD, signal, histogram
@@ -222,13 +243,13 @@ class TechnicalAnalysis:
         self.df["macd"], self.df["macd_signal"], self.df["hist"] = ta.MACD(self.df["Close"], fastperiod=12, slowperiod=26, signalperiod=9)
 
     def draw_macd(self):
-        return go.Scatter(yaxis="y3",x=self.df["Date"], y=self.df["macd"],
+        return go.Scatter(yaxis="y3",x=self.df.index, y=self.df["macd"],
                    name="MACD", line={ "color": "magenta", "width": 1})
 
     def draw_macd_signal(self):
-        return go.Scatter(yaxis="y3", x=self.df["Date"], y=self.df["macd_signal"], name="MACD Signal", line={"color": "green", "width": 1})
+        return go.Scatter(yaxis="y3", x=self.df.index, y=self.df["macd_signal"], name="MACD Signal", line={"color": "green", "width": 1})
     def draw_macd_histogram(self):
-        return go.Bar(yaxis="y3",x=self.df["Date"], y=self.df["hist"],
+        return go.Bar(yaxis="y3",x=self.df.index, y=self.df["hist"],
                    name="Volume", opacity=0.7, marker_color="darkblue")
 
     # RSI
@@ -238,19 +259,19 @@ class TechnicalAnalysis:
         self.df["70"], self.df["30"] = [70 for _ in self.df["Close"]], [30 for _ in self.df["Close"]]
 
     def draw_rsi14(self):
-        return go.Scatter(yaxis="y4", x=self.df["Date"], y=self.df["rsi14"],
+        return go.Scatter(yaxis="y4", x=self.df.index, y=self.df["rsi14"],
                    name="RSI14" ,line={ "color": "magenta", "width": 1})
 
     def draw_rsi28(self):
-        return go.Scatter(yaxis="y4", x=self.df["Date"], y=self.df["rsi28"],
+        return go.Scatter(yaxis="y4", x=self.df.index, y=self.df["rsi28"],
                    name="RSI28", line={"color": "green", "width": 1})
 
     def draw_30(self):
-        return go.Scatter(yaxis="y4", x=self.df["Date"], y=self.df["30"],
+        return go.Scatter(yaxis="y4", x=self.df.index, y=self.df["30"],
                    name="30%", line={"color": "red", "width": 1})
 
     def draw_70(self):
-        return go.Scatter(yaxis="y4", x=self.df["Date"], y=self.df["70"],
+        return go.Scatter(yaxis="y4", x=self.df.index, y=self.df["70"],
                    name="30%", line={"color": "red", "width": 1})
     
 
@@ -262,22 +283,22 @@ class TechnicalAnalysis:
 
     # Stochastics
     def draw_stochastics_slowK(self):
-        return go.Scatter(yaxis="y5", x=self.df["Date"], y=self.df["slowK"],
+        return go.Scatter(yaxis="y5", x=self.df.index, y=self.df["slowK"],
                    name="slowK", line={"color": "magenta", "width": 1})
     def draw_stochastics_slowD(self):
-        return go.Scatter(yaxis="y5", x=self.df["Date"], y=self.df["slowD"],
+        return go.Scatter(yaxis="y5", x=self.df.index, y=self.df["slowD"],
                    name="slowD", line={"color": "green", "width": 1})
 
     def draw_auxiliary20(self):
-        return go.Scatter(yaxis="y5", x=self.df["Date"], y=self.df["20"], name="20",
+        return go.Scatter(yaxis="y5", x=self.df.index, y=self.df["20"], name="20",
                    line={"color": "red", "width": 0.5 })
 
     def draw_auxiliary80(self):
-        return go.Scatter(yaxis="y5", x=self.df["Date"], y=self.df["80"], name="80",
+        return go.Scatter(yaxis="y5", x=self.df.index, y=self.df["80"], name="80",
                    line={"color": "red", "width": 0.5})
 
     def draw_volume(self):
-        return go.Bar(yaxis="y6", x=self.df["Date"], y=self.df["Volume"], name="Volume",
+        return go.Bar(yaxis="y6", x=self.df.index, y=self.df["Volume"], name="Volume",
                    marker={ "color": "slategray"})
 
 
@@ -288,16 +309,15 @@ class TechnicalAnalysis:
         self.df["mb_marker"] = (mb/100 * self.df["High"]).abs().replace({0:np.nan})
 
     def draw_spinning_top(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["mb_marker"],
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["mb_marker"],
                           mode="markers+text", text=self.df["mb_signal"],
                           textposition ="top center", name = "Spinning top",
                           marker = {"size": 12, "color": "blue", "opacity": 0.6},
                           textfont = {"size": 14, "color": "grey"})
     
-
     # Tsutsumiashi Engulfing
     def draw_engulfing(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["eng_marker"],
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["eng_marker"],
                    mode="markers+text", text=self.df["eng_signal"],
                    textposition ="top center",
                    name = "Engulfing",
@@ -306,7 +326,7 @@ class TechnicalAnalysis:
 
     # Candle 3 outside
     def draw_three_outside(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["3out_marker"], mode="markers+text", text=self.df["3out_signal"],
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["3out_marker"], mode="markers+text", text=self.df["3out_signal"],
                    textposition ="top center",
                    name = "3 outside",
                    marker = {"size": 12, "color": "blue", "opacity": 0.6},
@@ -314,7 +334,7 @@ class TechnicalAnalysis:
 
     # Candle 3 inside
     def draw_three_inside(self):
-        return go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["3in_marker"], mode="markers+text", text=self.df["3in_signal"],
+        return go.Scatter(yaxis="y1", x=self.df.index, y=self.df["3in_marker"], mode="markers+text", text=self.df["3in_signal"],
                    textposition ="top center",
                    name = "3 inside",
                    marker = {"size": 12, "color": "blue", "opacity": 0.6},
@@ -323,10 +343,11 @@ class TechnicalAnalysis:
     
     # Draw a candle chart
     def charts(self, ticker, company=""):
-        #rdf = self.df[self.start:self.end]
+        if self.df is None:
+            return None
+
         rdf = self.df
-        rdf.Date  = pd.to_datetime(self.df.index).strftime('%m-%d-%Y')
-        
+
         layout = {
             "height": 600,
             "title" : { "text" : "{}  {}".format(ticker, company), "x":0.5},
@@ -340,7 +361,7 @@ class TechnicalAnalysis:
         # row_heights: eacho figs height
 
         # Candlestics
-        fig.add_trace(go.Candlestick(yaxis="y1", x=rdf["Date"],
+        fig.add_trace(go.Candlestick(yaxis="y1", x=rdf.index,
                             open=rdf["Open"], high=rdf["High"],
                             low = rdf["Low"], close=rdf["Close"],
                             increasing_line_color="magenta",
@@ -354,7 +375,7 @@ class TechnicalAnalysis:
         # Golden Dead cross
         fig.add_trace(self.draw_golden_cross(), row=1, col=1)
         fig.add_trace(self.draw_dead_cross(),row=1, col=1)
-        #fig.add_trace(go.Scatter(yaxis="y1", x=self.df["Date"], y=self.df["golden"], name="Golden Cross",  opacity=0.5), row=1, col=1)
+        fig.add_trace(go.Scatter(yaxis="y1", x=self.df.index, y=self.df["golden"], name="Golden Cross",  opacity=0.5), row=1, col=1)
         # Bollinger
         fig.add_trace(self.draw_bollinger_upper(), row=1, col=1)
         fig.add_trace(self.draw_bollinger_lower(), row=1, col=1)
@@ -382,6 +403,8 @@ class TechnicalAnalysis:
         fig.update_layout(width=1100,height=1400, margin=dict(t=50, b=10, l=15, r=15))
         # Back ground color for figures 
         #fig.update_layout(paper_bgcolor='#EBEDEF',plot_bgcolor='#D6DBDF')
+
+        fig.update_xaxes(type="category")
 
         return fig
 
