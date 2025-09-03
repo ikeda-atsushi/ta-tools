@@ -7,7 +7,12 @@ import dafinance as fi
 from dash import Dash, dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
+import sqlite3
+import os
+import dbctr
 from icecream import ic
+
+DBNAME = "stock.db"
 
 ############ DaLayout
 class DaLayout:
@@ -20,6 +25,9 @@ class DaLayout:
         self.ticker = None
         return
 
+    def setConn(self, conn):
+        self.conn = conn
+
     def layout(self):
         # Create layout with tabs
         layout = html.Div([
@@ -29,22 +37,26 @@ class DaLayout:
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab1-content"),
-                             dcc.Tab(label="Screen", value="screen",
+                             dcc.Tab(label="Register", value="register",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab2-content"),
-                             dcc.Tab(label="Info", value="info",
+                             dcc.Tab(label="Screen", value="screen",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab3-content"),
-                             dcc.Tab(label="Correlation", value="correlation",
+                             dcc.Tab(label="Info", value="info",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab4-content"),
-                             dcc.Tab(label="Volatility", value="volatility",
+                             dcc.Tab(label="Correlation", value="correlation",
                                          className="custom-tab",
                                          selected_className="custom-tab-selected",
                                          id="tab5-content"),
+                             dcc.Tab(label="Volatility", value="volatility",
+                                         className="custom-tab",
+                                         selected_className="custom-tab-selected",
+                                         id="tab6-content"),
             
             ]),
         html.Div(id="tabs-content",className="center"),
@@ -60,23 +72,18 @@ class DaLayout:
             )
         def render_tab_content(tab):
             if tab == "home":
-                options = [{'label':'S&P500','value':"^GSPC"},
-                           {'label': 'Cellebrite DI Ltd.', 'value':'CLBT'},
-                           {'label': 'Tenaris S.A.', 'value':'TS'},
+                options = [{'label': 'S&P 500','value':"^GSPC"},
+                           {'label': 'Dow Jorns','value':"^DJI"},
+                           {'label': 'e.l.f beauty inc.', 'value':'ELF'},
+                           {'label': 'Rocket Lab Corp.', 'value':'RKLB'},
+                           {'label': 'Boardcom Inc.', 'value':'AVGO'},
                            {'label': 'SiriusPointLtd.', 'value':'SPNT'},
-                           {'label': 'Western Midstream Partners', 'value':'WES'},
                            {'label': 'Rezolve AI Limited', 'value':'RZLV'},
-                           {'label': 'US steel', 'value':'X'},
                            {'label': 'Palantir Technologies Inc.', 'value':'PLTR'},
                            {'label': 'D-Wave Quantum Inc.', 'value':'QBTS'},
                            {'label': 'Quantum Computing Inc.', 'value':'QUBT'},
                            {'label': 'IonQ Inc.', 'value':'IONQ'},
-                           {'label': 'Plladyne AI Corp.', 'value':'PDYN'},
-                           {'label': 'BigBear AI Holdings', 'value':'BBAI'},
-                           {'label': 'Intel Corp.', 'value':'INTC'},
-                           {'label': 'Nebius Group', 'value':'NBIS'},
-                           {'label': 'Direxion Shares ETF', 'value':'TSLL'},
-                           {'label': 'Newmont Corporation', 'value':'NEM'}]
+                           {'label': 'Nebius Group', 'value':'NBIS'}]
 
                 sidebar = html.Div(
                     id = "sidebar1",
@@ -107,6 +114,38 @@ class DaLayout:
                     sidebar,
                     dcc.Graph(id="graph1")
                 ])
+
+                return tab_content
+
+            elif tab == 'register':
+                center = html.Div([
+                    html.H2("Symbol Register", style={"textAlign": "center"}),
+
+                    html.Div([
+                        dcc.Input(id="ticker-input", type="text", placeholder="Enter symbol (e.g., AAPL)", style={"width": "40%"}),
+                        html.Button("Add", id="submit-button", n_clicks=0)
+                        ], style={"textAlign": "center", "marginBottom": "20px"}),
+
+                    html.Div(id="feedback", style={"textAlign": "center", "color": "green"}),
+
+                    dash_table.DataTable(
+                        id="company-table",
+                        columns=[
+                            {"name": "ID", "id": "id"},
+                            {"name": "Symbol", "id": "symbol"},
+                            {"name": "Company", "id": "company"}
+                            ],
+                        data=[],
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "left", "padding": "5px", "color":"black"},
+                        style_header={"backgroundColor": "#1f77b4", "color": "white", "fontWeight": "bold"}
+                        )
+                    ])
+                
+                # Set initial dropdown value correctly to an existing key
+                tab_content = html.Div([
+                    center
+                    ])
 
                 return tab_content
                 
@@ -199,7 +238,7 @@ class DaLayout:
             elif tab == "volatility":
 
                 # 銘柄リスト（必要に応じて追加）
-                default_tickers = ["AAPL", "MSFT", "GOOGL", "TSLA", "AMZN", "NVDA", "PLTR"]
+                default_tickers = ["AVGO", "QBTS"]
 
 
                 # Volatility category data (in English)
@@ -228,8 +267,8 @@ class DaLayout:
                         html.Label("期間指定:"),
                         dcc.DatePickerRange(
                             id="date-picker",
-                            start_date="2023-01-01",
-                            end_date="2024-12-31"
+                            start_date="2024-01-01",
+                            end_date="2025-08-08"
                             ),
 
                         html.Br(), html.Br(),
@@ -271,8 +310,9 @@ class DaLayout:
             if symbol is None:
                 return None
             self.ticker = symbol
+            
             ### Get Histrical Data
-            df = fi.StockData(symbol).getHistory()
+            df = fi.StockData().getHistory(symbol)
             # Technical Analyze
             self.analyze =  fi.TechnicalAnalysis(df)
             self.fig =  self.analyze.charts(symbol)
@@ -301,9 +341,10 @@ class DaLayout:
             Output("graph2", "figure"),
             [Input("dropdown2", "value")])
         def update_graph2(symbol):
-            self.ticker = symbol
+            
             cor = fi.Correlation()
-            return cor.getGraph(self.ticker)
+            fig = cor.getGraph(symbol)
+            return fig
 
         # Tab3 
         @self.app.callback(
@@ -334,14 +375,14 @@ class DaLayout:
             if symbol is None:
                 return go.Figure()
 
-            df = fi.StockData(symbol).getHistory()
+            df = fi.StockData().getHistory(symbol)
             if df is None or df.empty:
                 return go.Figure()
 
             analyze = fi.TechnicalAnalysis(df)
             return analyze.charts(symbol)
 
-        
+
         # Callback for Volatility
         @self.app.callback(
             Output("volatility-graph", "figure"),
@@ -356,20 +397,56 @@ class DaLayout:
 
             return analyze.getGraph()
 
-    
+        # コールバック：追加処理とテーブル更新
+        @self.app.callback(
+            Output("company-table", "data"),
+            Output("feedback", "children"),
+            Input("submit-button", "n_clicks"),
+            State("ticker-input", "value")
+            )
+        def update_table(n_clicks, symbol):
+            
+            message = None
+            self.db = dbctr.DBCtr.get_instance()
+            cursor = self.db.conn.cursor()
+            
+            if n_clicks > 0 and symbol:
+                symbol = symbol.strip().upper()
+                try:
+                    info = yf.Ticker(symbol).info
+                    name = info.get("longName") or info.get("shortName") or "N/A"
+                    cursor.execute("INSERT OR IGNORE INTO symbols (symbol, company) VALUES (?, ?)", (symbol, name))
+                    self.conn.commit()
+                    if self.cursor.rowcount:
+                        message = f"Added: {symbol} - {name}"
+                    else:
+                        message = f"{symbol} is already in the database."
+                except Exception as e:
+                        message = f"Error: Could not fetch data for {symbol}"
+
+            df = pd.read_sql_query("SELECT * FROM symbols", self.db.conn)
+            return df.to_dict("records"), message
+
+
 ################ Dashboard
 
 class Dashboard():
 
+
     def __init__(self):
+
+        db = dbctr.DBCtr(DBNAME)
+        sqlcmd = dbctr.SqlCom()
+        sqlcmd.createTables()
+
         self.app = Dash(__name__, suppress_callback_exceptions=True)
         dlayout = DaLayout(self.app)
         self.app.layout = dlayout.layout()
         dlayout.register_callback()
 
     def run(self):
-        self.app.run_server(debug=True)
+        self.app.run(debug=True)
 
 
 if __name__ == "__main__":
-    Dashboard().run()
+     Dashboard().run() 
