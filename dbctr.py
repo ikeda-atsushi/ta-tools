@@ -46,7 +46,7 @@ class SqlCom:
 
     # Create tables
     def createTables(self):
-        
+
         cur = self.db.get_cursor()
         try:
             cur.executescript("""
@@ -57,9 +57,14 @@ CREATE TABLE IF NOT EXISTS symbols (
     company TEXT
 );
 
+CREATE TABLE IF NOT EXISTS groups (
+    gid INTEGER PRIMARY KEY AUTOINCREMENT,
+    wgroup TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS watch_list (
-    id INTEGER PRIMARY KEY,
-    group TEXT NOT NULL
+    id  INTEGER PRIMARY KEY,
+    gid INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS history (
@@ -82,12 +87,10 @@ CREATE TABLE IF NOT EXISTS moving_average (
    FOREIGN KEY (id) REFERENCES history(id)
 );
 """)
-            
             self.db.commit()
             
         except sqlite3.Error as e:
-            print(e)
-            print("Execute SQL error {e}")
+            print(f"Create tables: {e}")
             
         return
 
@@ -123,19 +126,19 @@ id, Date, Open, High, Low, Close, Volume
             print('Value error: {ve}')
             return False
         except sqlite3.IntegrityError as e:
-            print(f"IntegrityError: {e}")
+            print("IntegrityError: {e}")
             self.conn.rollback()  
             return False
         except sqlite3.OperationalError as e:
-            print(f"OperationalError: {e}")
+            print("OperationalError: {e}")
             return False
         except sqlite3.Error as e:
-            print(f"An error occurred: {e}")
+            print("An error occurred: {e}")
             if self.conn:
                 self.conn.rollback()
             return False
         except sqlite3.Error as e:
-            print(f"DB error ***: {e}")
+            print("Insert data: {e}")
             cur.execute('ROLLBACK')
             return False
             
@@ -177,7 +180,7 @@ id, Date, Open, High, Low, Close, Volume
         except ValueError as ve:
             print(ve)
         except sqlite3.Error as e:
-            print(f"DB error1: {e}")
+            print(f"read cach error: {e}")
             cur.execute("ROLLBACK")
 
         return df
